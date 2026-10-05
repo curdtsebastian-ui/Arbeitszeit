@@ -1,0 +1,54 @@
+name: Arbeitszeit APK bauen
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Repository laden
+        uses: actions/checkout@v4
+
+      - name: Java 17 einrichten
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Projekt entpacken
+        run: |
+          mkdir -p projekt
+          unzip -q Arbeitszeit-Neu-2-Projekt.zip -d projekt
+
+      - name: Android-Projekt finden
+        run: |
+          echo "Inhalt:"
+          find projekt -maxdepth 3 -type f | sort
+          if [ -f "projekt/settings.gradle" ]; then
+            echo "PROJECT_DIR=projekt" >> $GITHUB_ENV
+          else
+            DIR=$(find projekt -name settings.gradle -o -name settings.gradle.kts | head -1 | xargs dirname)
+            echo "PROJECT_DIR=$DIR" >> $GITHUB_ENV
+          fi
+
+      - name: Gradle einrichten
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10'
+
+      - name: APK bauen
+        run: |
+          cd "$PROJECT_DIR"
+          gradle :app:assembleDebug --stacktrace
+
+      - name: APK veröffentlichen
+        uses: actions/upload-artifact@v4
+        with:
+          name: Arbeitszeit-Neu-APK
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
